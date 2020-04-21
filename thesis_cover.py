@@ -4,6 +4,7 @@ import sys
 from glob import glob
 from pathlib import Path
 from typing import Optional
+import random
 
 import adaptive
 import matplotlib
@@ -15,8 +16,6 @@ import matplotlib.pyplot as plt
 import matplotlib.tri as mtri
 import numpy as np
 from matplotlib import pyplot as plt
-
-options = sorted(Path("data").glob("*/*.pickle"))
 
 
 def get_cmap(cmap, min_clip=0.0, max_clip=1.0, exp=1.0):
@@ -56,8 +55,8 @@ def to_gradient(data, horizontal, cmap, spread=20, mid=0.5):
     return gradient_rgb
 
 
-def get_new_artists(npoints, learner, data, ax, xy_size, npoints_interp, cmap):
-    new_learner = learner_till(npoints, learner, data)
+def get_new_artists(npoints_tri, learner, data, ax, xy_size, npoints_interp, cmap):
+    new_learner = learner_till(npoints_tri, learner, data)
     (line1, line2), (zs, triang) = plot_tri(new_learner, ax, xy_size)
     data = learner.interpolated_on_grid(npoints_interp)[
         -1
@@ -77,9 +76,11 @@ def generate_cover(
     save_fname: Optional[str] = "thesis-cover.pdf",
     with_lines=False,
     npoints_interp=1000,
+    dpi=300,
     cmap=None,
     personal_text=None,
     edition=None,
+    with_text=True,
 ):
     data = list(learner.data.items())
 
@@ -94,7 +95,7 @@ def generate_cover(
     y_size = (y_total + margin) / inch_per_cm
     xy_size = x_size, y_size
 
-    spine_size = 0.8 / inch_per_cm
+    spine_size = 1.1 / inch_per_cm
 
     fig, ax = plt.subplots(figsize=(x_size, y_size))
     fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=None, hspace=None)
@@ -103,8 +104,12 @@ def generate_cover(
     ax.set_yticks([])
 
     cmap = cmap or get_cmap("inferno", 0.15, 0.95, 1.15)
+    npoints_tri = len(data) // 4
+    if len(data) > 4000:
+        npoints_tri = max(npoints_tri, 4000)
+
     im, line1, line2 = get_new_artists(
-        len(data) // 5, learner, data, ax, xy_size, npoints_interp, cmap
+        npoints_tri, learner, data, ax, xy_size, npoints_interp, cmap
     )
 
     title = "Towards realistic numerical simulations \n of Majorana devices"
@@ -114,96 +119,100 @@ def generate_cover(
     text_color = "white"
 
     ax.axis("off")
-    font = "proxima_ssv/ProximaNova-Regular.otf"
-    text_kwargs = dict(
-        path_effects=[
-            patheffects.withStroke(
-                linewidth=0.7, foreground="black", capstyle="round", alpha=0.7
+    if with_text:
+        font = "proxima_ssv/ProximaNova-Regular.otf"
+        text_kwargs = dict(
+            path_effects=[
+                patheffects.withStroke(
+                    linewidth=0.7, foreground="black", capstyle="round", alpha=1
+                )
+            ],
+            zorder=4,
+            verticalalignment="center",
+            fontproperties=fm.FontProperties(fname=font),
+        )
+        for pos, text in zip([-0.8, 0.7], [author, title]):
+            ax.text(
+                x_size / 4,
+                pos * (y_size - margin) / 2,
+                text.upper(),
+                color=text_color,
+                weight="bold",
+                **text_kwargs,
+                horizontalalignment="center",
+                fontsize=18,
             )
-        ],
-        zorder=4,
-        verticalalignment="center",
-        fontproperties=fm.FontProperties(fname=font),
-    )
-    for pos, text in zip([-0.8, 0.7], [author, title]):
+
         ax.text(
-            x_size / 4,
-            pos * (y_size - margin) / 2,
-            text.upper(),
+            -0.09,
+            y_size / 4 - 0.9,
+            title2,
             color=text_color,
             weight="bold",
+            rotation=-90,
             **text_kwargs,
-            horizontalalignment="center",
-            fontsize=19,
+            fontsize=12,
+            horizontalalignment="left",
+        )
+        ax.text(
+            -0.09,
+            -y_size / 4 - 1,
+            author,
+            color=text_color,
+            weight="bold",
+            rotation=-90,
+            **text_kwargs,
+            fontsize=12,
+            horizontalalignment="left",
         )
 
-    ax.text(
-        -0.09,
-        y_size / 4 - 0.9,
-        title2,
-        color=text_color,
-        weight="bold",
-        rotation=-90,
-        **text_kwargs,
-        fontsize=12,
-        horizontalalignment="left",
-    )
-    ax.text(
-        -0.09,
-        -y_size / 4 - 1,
-        author,
-        color=text_color,
-        weight="bold",
-        rotation=-90,
-        **text_kwargs,
-        fontsize=12,
-        horizontalalignment="left",
-    )
-
-    lower_text_back = "Casimir PhD series 2020-11\nISBN 978-90-8593-438-7"
-    if edition is not None:
-        lower_text_back += f"\nedition {edition} of 120"
-    ax.text(
-        -x_size / 4,
-        -0.8 * (y_size - margin) / 2,
-        lower_text_back,
-        color=text_color,
-        weight="bold",
-        horizontalalignment="center",
-        **text_kwargs,
-        fontsize=10,
-    )
-    if personal_text is not None:
+        lower_text_back = "Casimir PhD series 2020-11\nISBN 978-90-8593-438-7"
+        if edition is not None:
+            lower_text_back += f"\nedition {edition} of 120"
         ax.text(
             -x_size / 4,
-            0.4 * (y_size - margin) / 2,
-            personal_text,
+            -0.8 * (y_size - margin) / 2,
+            lower_text_back,
             color=text_color,
             weight="bold",
             horizontalalignment="center",
             **text_kwargs,
-            fontsize=14,
+            fontsize=11,
         )
+        if personal_text is not None:
+            ax.text(
+                -x_size / 4,
+                0.4 * (y_size - margin) / 2,
+                personal_text,
+                color=text_color,
+                weight="bold",
+                horizontalalignment="center",
+                **text_kwargs,
+                fontsize=16,
+            )
 
-    if with_lines:
-        for i in [-1, +1]:
-            line_kwargs = dict(color="cyan", zorder=10, linestyles=":")
-            ax.vlines(i * spine_size / 2, -y_size / 2, y_size / 2, **line_kwargs)
-            ax.vlines(
-                -i * x_size / 2 + i * margin, -y_size / 2, y_size / 2, **line_kwargs
-            )
-            ax.hlines(
-                -i * y_size / 2 + i * margin, -x_size / 2, x_size / 2, **line_kwargs
-            )
+        if with_lines:
+            for i in [-1, +1]:
+                line_kwargs = dict(color="cyan", zorder=10, linestyles=":")
+                ax.vlines(i * spine_size / 2, -y_size / 2, y_size / 2, **line_kwargs)
+                ax.vlines(
+                    -i * x_size / 2 + i * margin, -y_size / 2, y_size / 2, **line_kwargs
+                )
+                ax.hlines(
+                    -i * y_size / 2 + i * margin, -x_size / 2, x_size / 2, **line_kwargs
+                )
 
     ax.set_xlim(-x_size / 2, x_size / 2)
     ax.set_ylim(-y_size / 2, y_size / 2)
     print(f"Saving {save_fname}")
-    ext = save_fname.split(".")[-1]
     if save_fname is not None:
         fig.savefig(
-            save_fname, format=ext, bbox_inches="tight", pad_inches=0.001, dpi=300
+            save_fname,
+            format=save_fname.suffix[1:],
+            pad_inches=0,
+            dpi=dpi,
         )
+    plt.close(fig)
 
 
 def bounds_from_saved_learner(fname):
@@ -231,3 +240,8 @@ def save(fname):
 
     learner = load_learner(fname)
     generate_cover(learner, pdf_fname, with_lines=False, npoints_interp=2000)
+
+
+def fname_out(folder, fname):
+    fname_friendly = str(fname).replace("/", "__")
+    return folder / f"{fname_friendly}.pdf"
