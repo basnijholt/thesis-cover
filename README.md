@@ -1,5 +1,6 @@
 # thesis-cover
 Parametrically designing my PhD thesis cover
+> Towards realistic numerical simulations of Majorana devices 🎓 ([pdf](http://files.nijho.lt/thesis.pdf) | [source code](https://github.com/basnijholt/thesis))
 
 Read [this blog post](https://quantumtinkerer.tudelft.nl/blog/thesis-cover/) for more context!
 
