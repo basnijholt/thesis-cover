@@ -39,7 +39,7 @@ def plot_tri(learner, ax, xy_size):
     tri = ip.tri
     xs, ys = tri.points.T
     x_size, y_size = xy_size
-    triang = mtri.Triangulation(x_size * xs, y_size * ys, triangles=tri.vertices)
+    triang = mtri.Triangulation(x_size * xs, y_size * ys, triangles=tri.simplices)
     return ax.triplot(triang, c="k", lw=0.3, alpha=1, zorder=2), (ip.values, triang)
 
 
